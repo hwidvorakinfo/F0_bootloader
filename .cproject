@@ -55,6 +55,7 @@
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/stm32f0_stdperiph_lib/Debug}&quot;"/>
 								</option>
 								<option id="gnu.c.link.option.other.1234860096" name="Other options (-Xlinker [option])" superClass="gnu.c.link.option.other"/>
+								<option id="fr.ac6.managedbuild.tool.gnu.cross.c.linker.script.1587628742" superClass="fr.ac6.managedbuild.tool.gnu.cross.c.linker.script" value="/Users/daymoon/Documents/workspace/F0_bootloader/linker_boot.ld" valueType="string"/>
 								<inputType id="cdt.managedbuild.tool.gnu.c.linker.input.183964561" superClass="cdt.managedbuild.tool.gnu.c.linker.input">
 									<additionalInput kind="additionalinputdependency" paths="$(USER_OBJS)"/>
 									<additionalInput kind="additionalinput" paths="$(LIBS)"/>

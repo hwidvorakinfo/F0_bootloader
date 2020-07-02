@@ -11,6 +11,11 @@
 volatile usart_data_tx_t Tx;
 volatile usart_data_rx_t Rx;
 
+#define RSHARE_SECTION ".rshared.data,\"aw\",%nobits//"
+#define _RSHARE __attribute__((used, section(RAMSHARE)))
+
+static volatile uint32_t *shared_data = (uint32_t *)0x200000C0;
+
 void usart_config(void)
 {
   USART_InitTypeDef USART_InitStructure;
@@ -82,6 +87,16 @@ void usart_config(void)
 
   usart_send_text((uint8_t *)&hello);
   usart_newline();
+
+  if (*shared_data == 7)
+  {
+	  volatile uint8_t shared[3];
+	  shared[0] = 'H';
+	  shared[1] = 'I';
+	  shared[2] = 0;
+	  usart_send_text((uint8_t *)&shared);
+  }
+  *shared_data = 3;
 }
 
 void usart_send_text(uint8_t *text)

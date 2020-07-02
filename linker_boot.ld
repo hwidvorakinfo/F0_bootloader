@@ -61,7 +61,8 @@ _Min_Stack_Size = 0x400; /* required amount of stack */
 /* Memories definition */
 MEMORY
 {
-  RAM (xrw)		: ORIGIN = 0x20000000, LENGTH = 8K
+  RAMSHARE (xrw): ORIGIN = 0x200000C0, LENGTH = 256
+  RAM (xrw)		: ORIGIN = 0x200001C0, LENGTH = 8K - 0x1C0
   ROM (rx)		: ORIGIN = 0x8000000, LENGTH = 12K
 }
 
@@ -176,6 +177,12 @@ SECTIONS
     _ebss = .;         /* define a global symbol at bss end */
     __bss_end__ = _ebss;
   } >RAM
+  
+  .shared_data :
+  {
+    *(.rshared.data)
+    *(.rshared.data*)
+  } > RAMSHARE
 
   /* User_heap_stack section, used to check that there is enough RAM left */
   ._user_heap_stack :
