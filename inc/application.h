@@ -109,9 +109,9 @@
 
 #define OUT_PORT_F_OUTPUTS		STEPPER_CTRL | STEPPER_STEP
 #define GPIOF_RESET_INIT
-	#define OUT_PORT_F_RESET_INIT	STEPPER_CTRL | STEPPER_STEP
+	#define OUT_PORT_F_RESET_INIT	STEPPER_STEP
 //#define GPIOF_SET_INIT
-	#define OUT_PORT_F_SET_INIT		0
+	#define OUT_PORT_F_SET_INIT		STEPPER_CTRL
 #endif
 
 // vstupy na PAx
@@ -364,6 +364,8 @@
 // HW konfigurace
 #define HWVERSION_V01			0x00
 #define HWVERSION_V02			0x01
+
+#define RS485BAUDRATE			115200
 
 #endif // VERSION A
 

@@ -8,32 +8,45 @@
 #include "commands.h"
 #include "string.h"
 #include "application.h"
+#include "bootloader.h"
+#include "errorcodes.h"
 
 // prikazy
 static const uint8_t COMMAND_BLANK[] = "";
 static command_t command_blank = {(uint8_t *)&COMMAND_BLANK, NULL, TRUE};				// prazdny prikaz, pouze enter
-static const uint8_t COMMAND_HBD[] = "HBD";
-static command_t command_hbd = {(uint8_t *)&COMMAND_HBD, &cmd_heatbeddisable, TRUE};	// prikaz HBD, heatbed disable
-static const uint8_t COMMAND_HBE[] = "HBE";
-static command_t command_hbe = {(uint8_t *)&COMMAND_HBE, &cmd_heatbedenable, TRUE};		// prikaz HBE, heatbed enable
-static const uint8_t COMMAND_HBGS[] = "HBGS";
-static command_t command_hbgs = {(uint8_t *)&COMMAND_HBGS, &cmd_heatbedgetstatus, TRUE};// prikaz HBGS, heatbed get status
-static const uint8_t COMMAND_HBG1T[] = "HBG1T**";
-static command_t command_hbg1t = {(uint8_t *)&COMMAND_HBG1T, &cmd_heatbedget1temp, TRUE}; // prikaz HBG1Txx, get temperature one bed xx
-static const uint8_t COMMAND_HBGAT[] = "HBGAT";
-static command_t command_hbgat = {(uint8_t *)&COMMAND_HBGAT, &cmd_heatbedgetall, TRUE}; 	// prikaz HBGAT, get all temperatures
-static const uint8_t COMMAND_HBS1T[] = "HBS1T**_***";
-static command_t command_hbs1t = {(uint8_t *)&COMMAND_HBS1T, &cmd_heatbedset1temp, TRUE}; // prikaz HBS1Txx, set temperature one bed xx
-static const uint8_t COMMAND_HBSAT[] = "HBSAT**_***_**_***_**_***_**_***_**_***_**_***_**_***_**_***_**_***_**_***_**_***_**_***_**_***_**_***_**_***_**_***";
-static command_t command_hbsat = {(uint8_t *)&COMMAND_HBSAT, &cmd_heatbedsetall, TRUE}; // prikaz HBSATxx_TTT_xx_TTT_xx_TTT, set all temperatures
-static const uint8_t COMMAND_HBSGT[] = "HBSGT***";
-static command_t command_hbsgt = {(uint8_t *)&COMMAND_HBSGT, &cmd_heatbedsetgloball, TRUE}; // prikaz HBSGTttt, set all temperatures globally
-static const uint8_t COMMAND_HBC[] = "HBC******.*";
-static volatile command_t command_hbc = {(uint8_t *)&COMMAND_HBC, &cmd_heatbedconst, TRUE};	// prikaz HBCNNTS**.*, nastav danou konstantu zesileni, NN je cislo bedu, T je typ konstanty, S je znamenko a **.* je cislo v desetinnem tvaru
-static const uint8_t COMMAND_HBML[] = "HBML**";
-static volatile command_t command_hbml = {(uint8_t *)&COMMAND_HBML, &cmd_heatbedload, TRUE};	// prikaz HBML**, nastav maximalni zatez, ** je hodnota, od 00 do HBL_MODULAR_BED_COUNT
-static const uint8_t COMMAND_HBV[] = "HBV";
-static volatile command_t command_hbv = {(uint8_t *)&COMMAND_HBV, &cmd_heatbedversion, TRUE};	// prikaz HBV, ziskej cislo verze desky
+
+// get version
+static const uint8_t COMMAND_BLGETVER[] = "GETV****";
+static command_t command_getver = {(uint8_t *)&COMMAND_BLGETVER, &cmd_getver, TRUE};	// prikaz GETV
+
+// firmware update request
+static const uint8_t COMMAND_FUREQ[] = "FURQ****";
+static command_t command_fureq = {(uint8_t *)&COMMAND_FUREQ, &cmd_fureq, TRUE};			// prikaz FURQ
+
+// memory clear password request
+static const uint8_t COMMAND_MCPR[] = "MCPR**********";
+static command_t command_mcpr = {(uint8_t *)&COMMAND_MCPR, &cmd_mcpr, TRUE};			// prikaz MCPR******xxxx
+
+// memory lock request
+static const uint8_t COMMAND_MLREQ[] = "MLRQ****";
+static command_t command_mlreq = {(uint8_t *)&COMMAND_MLREQ, &cmd_mlreq, TRUE};			// prikaz MLRQ
+
+// firmware update stop
+static const uint8_t COMMAND_FUSTOP[] = "STOP****";
+static command_t command_fustop = {(uint8_t *)&COMMAND_FUSTOP, &cmd_fustop, TRUE};		// prikaz STOP
+
+// final CRC check
+static const uint8_t COMMAND_FICRC[] = "FCRC********";
+static command_t command_ficrc = {(uint8_t *)&COMMAND_FICRC, &cmd_ficrc, TRUE};			// prikaz FICRC
+
+// bootloader restart
+static const uint8_t COMMAND_REST[] = "REST****";
+static command_t command_rest = {(uint8_t *)&COMMAND_REST, &cmd_rest, TRUE};			// prikaz REST
+
+// chunk transfer request
+static const uint8_t COMMAND_CHNN[] = "CH******";
+static command_t command_chnn = {(uint8_t *)&COMMAND_CHNN, &cmd_chnn, TRUE};			// prikaz CHNN
+
 
 
 
@@ -42,147 +55,120 @@ uint8_t cmd_isnumber(uint8_t *character);
 
 void commands_process(void)
 {
-	//if (heatbed_ready() == TRUE)
-	{
-		COMMAND_STATUS (*p_func)();
+	COMMAND_STATUS (*p_func)();
 
-		// parsing prikazu HBD
-		if (commands_parse((uint8_t *)&COMMAND_HBD, get_Rx_buffer()) == COMMANDOK)
-		{
-			if (command_hbd.enabled)
-			{
-				// zavolani obsluzne funkce prikazu
-				p_func = command_hbd.p_itemfunc;
-				p_func(NULL);
-			}
-			return;
-		}
-		// parsing prikazu HBE
-		else if (commands_parse((uint8_t *)&COMMAND_HBE, get_Rx_buffer()) == COMMANDOK)
-		{
-			if (command_hbe.enabled)
-			{
-				// zavolani obsluzne funkce prikazu
-				p_func = command_hbe.p_itemfunc;
-				p_func(NULL);
-			}
-			return;
-		}
-		// parsing prikazu HBGS
-		else if (commands_parse((uint8_t *)&COMMAND_HBGS, get_Rx_buffer()) == COMMANDOK)
-		{
-			if (command_hbgs.enabled)
-			{
-				// zavolani obsluzne funkce prikazu
-				p_func = command_hbgs.p_itemfunc;
-				p_func(NULL);
-			}
-			return;
-		}
-		// parsing prikazu HBG1T
-		else if (commands_parse((uint8_t *)&COMMAND_HBG1T, get_Rx_buffer()) == COMMANDOK)
-		{
-			if (command_hbg1t.enabled)
-			{
-				// zavolani obsluzne funkce prikazu
-				p_func = command_hbg1t.p_itemfunc;
-				p_func(get_Rx_buffer());
-			}
-			return;
-		}
-		// parsing prikazu HBGAT
-		else if (commands_parse((uint8_t *)&COMMAND_HBGAT, get_Rx_buffer()) == COMMANDOK)
-		{
-			if (command_hbgat.enabled)
-			{
-				// zavolani obsluzne funkce prikazu
-				p_func = command_hbgat.p_itemfunc;
-				p_func(NULL);
-			}
-			return;
-		}
-		// parsing prikazu HBS1T
-		else if (commands_parse((uint8_t *)&COMMAND_HBS1T, get_Rx_buffer()) == COMMANDOK)
-		{
-			if (command_hbs1t.enabled)
-			{
-				// zavolani obsluzne funkce prikazu
-				p_func = command_hbs1t.p_itemfunc;
-				p_func(get_Rx_buffer());
-			}
-			return;
-		}
-		// parsing prikazu HBSAT
-		else if (commands_parse((uint8_t *)&COMMAND_HBSAT, get_Rx_buffer()) == COMMANDOK)
-		{
-			if (command_hbsat.enabled)
-			{
-				// zavolani obsluzne funkce prikazu
-				p_func = command_hbsat.p_itemfunc;
-				p_func(get_Rx_buffer());
-			}
-			return;
-		}
-		// parsing prikazu HBSGT
-		else if (commands_parse((uint8_t *)&COMMAND_HBSGT, get_Rx_buffer()) == COMMANDOK)
-		{
-			if (command_hbsgt.enabled)
-			{
-				// zavolani obsluzne funkce prikazu
-				p_func = command_hbsgt.p_itemfunc;
-				p_func(get_Rx_buffer());
-			}
-			return;
-		}
-		// parsing prikazu HBC****.*
-		else if (commands_parse(command_hbc.command, get_Rx_buffer()) == COMMANDOK)
-		{
-			if (command_hbc.enabled)
-			{
-				// zavolani obsluzne funkce prikazu
-				p_func = command_hbc.p_itemfunc;
-				p_func(get_Rx_buffer());
-			}
-			return;
-		}
-		// parsing prikazu HBML**
-		else if (commands_parse(command_hbml.command, get_Rx_buffer()) == COMMANDOK)
-		{
-			if (command_hbml.enabled)
-			{
-				// zavolani obsluzne funkce prikazu
-				p_func = command_hbml.p_itemfunc;
-				p_func(get_Rx_buffer());
-			}
-			return;
-		}
-		// parsing prikazu HBV
-		else if (commands_parse(command_hbv.command, get_Rx_buffer()) == COMMANDOK)
-		{
-			if (command_hbv.enabled)
-			{
-				// zavolani obsluzne funkce prikazu
-				p_func = command_hbv.p_itemfunc;
-				p_func(get_Rx_buffer());
-			}
-			return;
-		}
-		// parsing prazdneho prikazu
-		else if (commands_parse(command_blank.command, get_Rx_buffer()) == COMMANDBLANK)
-		{
-			if (command_blank.enabled)
-			{
-				// zavolani obsluzne funkce prikazu
-				commands_ok_cmd();
-			}
-			return;
-		}
-		else
-		{
-			// zbyva jiz jen posledni varianta - spatny prikaz
-			commands_wrong_cmd();
-		}
+#ifdef CRCCMDPROTECTION
+	uint32_t *p_crc = (uint32_t *)get_Rx_buffer;
+	if (bootloader_crc_cmd_check(p_crc[1]) == RETURN_ERROR)
+	{
+		return;
 	}
+#endif // CRCCMDPROTECTION
+
+	// parsing prikazu GETV
+	if (commands_parse((uint8_t *)&COMMAND_BLGETVER, get_Rx_buffer()) == COMMANDOK)
+	{
+		if (command_getver.enabled)
+		{
+			// zavolani obsluzne funkce prikazu
+			p_func = command_getver.p_itemfunc;
+			p_func(get_Rx_buffer());
+		}
+		return;
+	}
+	// parsing prikazu FURQ
+	else if (commands_parse((uint8_t *)&COMMAND_FUREQ, get_Rx_buffer()) == COMMANDOK)
+	{
+		if (command_fureq.enabled)
+		{
+			// zavolani obsluzne funkce prikazu
+			p_func = command_fureq.p_itemfunc;
+			p_func(get_Rx_buffer());
+		}
+		return;
+	}
+	// parsing prikazu MCPR
+	else if (commands_parse((uint8_t *)&COMMAND_MCPR, get_Rx_buffer()) == COMMANDOK)
+	{
+		if (command_mcpr.enabled)
+		{
+			// zavolani obsluzne funkce prikazu
+			p_func = command_mcpr.p_itemfunc;
+			p_func(get_Rx_buffer());
+		}
+		return;
+	}
+	// parsing prikazu MLRQ
+	else if (commands_parse((uint8_t *)&COMMAND_MLREQ, get_Rx_buffer()) == COMMANDOK)
+	{
+		if (command_mlreq.enabled)
+		{
+			// zavolani obsluzne funkce prikazu
+			p_func = command_mlreq.p_itemfunc;
+			p_func(get_Rx_buffer());
+		}
+		return;
+	}
+	// parsing prikazu STOP
+	else if (commands_parse((uint8_t *)&COMMAND_FUSTOP, get_Rx_buffer()) == COMMANDOK)
+	{
+		if (command_fustop.enabled)
+		{
+			// zavolani obsluzne funkce prikazu
+			p_func = command_fustop.p_itemfunc;
+			p_func(get_Rx_buffer());
+		}
+		return;
+	}
+	// parsing prikazu FCRC
+	else if (commands_parse((uint8_t *)&COMMAND_FICRC, get_Rx_buffer()) == COMMANDOK)
+	{
+		if (command_ficrc.enabled)
+		{
+			// zavolani obsluzne funkce prikazu
+			p_func = command_ficrc.p_itemfunc;
+			p_func(get_Rx_buffer());
+		}
+		return;
+	}
+	// parsing prikazu REST
+	else if (commands_parse((uint8_t *)&COMMAND_REST, get_Rx_buffer()) == COMMANDOK)
+	{
+		if (command_rest.enabled)
+		{
+			// zavolani obsluzne funkce prikazu
+			p_func = command_rest.p_itemfunc;
+			p_func(get_Rx_buffer());
+		}
+		return;
+	}
+	// parsing prikazu CHNN
+	else if (commands_parse((uint8_t *)&COMMAND_CHNN, get_Rx_buffer()) == COMMANDOK)
+	{
+		if (command_chnn.enabled)
+		{
+			// zavolani obsluzne funkce prikazu
+			p_func = command_chnn.p_itemfunc;
+			p_func(get_Rx_buffer());
+		}
+		return;
+	}
+	// parsing prazdneho prikazu
+	else if (commands_parse(command_blank.command, get_Rx_buffer()) == COMMANDBLANK)
+	{
+		if (command_blank.enabled)
+		{
+			// zavolani obsluzne funkce prikazu
+			commands_ok_cmd();
+		}
+		return;
+	}
+	else
+	{
+		// zbyva jiz jen posledni varianta - spatny prikaz
+		commands_wrong_cmd();
+	}
+
 }
 
 
@@ -264,121 +250,103 @@ void commands_ok_cmd(void)
 
 // handlery prikazu
 
-// prikaz HBD
-COMMAND_STATUS cmd_heatbeddisable(void *p_i)
+// prikaz GETVER
+COMMAND_STATUS cmd_getver(void *p_i)
 {
-	return COMMANDOK;
-}
-
-// prikaz HBE
-COMMAND_STATUS cmd_heatbedenable(void *p_i)
-{
-	return COMMANDOK;
-}
-
-// prikaz HBGS
-COMMAND_STATUS cmd_heatbedgetstatus(void *p_i)
-{
-	uint8_t text[] = "DISABLED";
-	hbl_heatbed_t *p_bed;
-
-	//p_bed = hbl_get_modular_bed();
-
-	if (p_bed->status == HBLENABLED)
+	if (bootloader_getversion(p_i) == RETURN_ERROR)
 	{
-		strcpy((char *)&text, (char *)&"ENABLED");
+		return COMMANDWRONG;
+	}
+	return COMMANDOK;
+}
+
+// prikaz FUREQ
+COMMAND_STATUS cmd_fureq(void *p_i)
+{
+	// zastav spousteni aplikace
+	if (bootloader_fureq(p_i) == RETURN_ERROR)
+	{
+		return COMMANDWRONG;
+	}
+	return COMMANDOK;
+}
+
+// prikaz MCPR
+COMMAND_STATUS cmd_mcpr(void *p_i)
+{
+	if (bootloader_mem_clear(p_i) == RETURN_NORMAL)
+	{
+		return COMMANDOK;
 	}
 	else
-	if (p_bed->status == HBLDISABLED)
 	{
-		strcpy((char *)&text, (char *)&"DISABLED");
+		return COMMANDWRONG;
 	}
-	usart_send_text((uint8_t *)&text);
-	usart_newline();
-
-	return COMMANDOK;
 }
 
-// prikaz HBG1Txx
-COMMAND_STATUS cmd_heatbedget1temp(void *p_i)
+// prikaz MLREQ
+COMMAND_STATUS cmd_mlreq(void *p_i)
 {
-	return COMMANDOK;
-}
-
-
-// prikaz HBGAT
-COMMAND_STATUS cmd_heatbedgetall(void *p_i)
-{
-	return COMMANDOK;
-}
-
-// prikaz HBS1T
-COMMAND_STATUS cmd_heatbedset1temp(void *p_i)
-{
-	return COMMANDOK;
-}
-
-// prikaz HBSAT
-COMMAND_STATUS cmd_heatbedsetall(void *p_i)
-{
-	return COMMANDOK;
-}
-
-// prikaz HBSGT
-COMMAND_STATUS cmd_heatbedsetgloball(void *p_i)
-{
-	return COMMANDOK;
-}
-
-// prikaz HBCxx****.* - HBC00P+05.0
-COMMAND_STATUS cmd_heatbedconst(void *p_i)
-{
-	return COMMANDOK;
-}
-
-// prikaz HBMLxx
-COMMAND_STATUS cmd_heatbedload(void *p_i)
-{
-	return COMMANDOK;
-}
-
-
-// prikaz HBV
-COMMAND_STATUS cmd_heatbedversion(void *p_i)
-{
-	uint8_t text[] = "MHB vx.x";
-	uint8_t version;
-
-#define MAJORNUM	5
-#define MINORNUM	7
-
-	//version = hbl_get_version();
-
-	switch (version)
+	if (bootloader_mem_lock(p_i) == RETURN_NORMAL)
 	{
-		case HWVERSION_V01:
-			text[MAJORNUM] = '0';
-			text[MINORNUM] = '1';
-		break;
-
-		case HWVERSION_V02:
-			text[MAJORNUM] = '0';
-			text[MINORNUM] = '2';
-		break;
-
-		default:
-			text[MAJORNUM] = 'N';
-			text[MINORNUM] = 'M';
-		break;
+		return COMMANDOK;
 	}
+	else
+	{
+		return COMMANDWRONG;
+	}
+}
 
-	usart_send_text((uint8_t *)&text);
-	usart_newline();
+// prikaz FUSTOP
+COMMAND_STATUS cmd_fustop(void *p_i)
+{
+	if (bootloader_update_stop(p_i) == RETURN_NORMAL)
+	{
+		return COMMANDOK;
+	}
+	else
+	{
+		return COMMANDWRONG;
+	}
+}
 
-	return COMMANDOK;
+// prikaz FICRC
+COMMAND_STATUS cmd_ficrc(void *p_i)
+{
+	if (bootloader_final_check(p_i) == RETURN_NORMAL)
+	{
+		return COMMANDOK;
+	}
+	else
+	{
+		return COMMANDWRONG;
+	}
+}
 
-#undef MAJORNUM
-#undef MINORNUM
+// prikaz REST
+COMMAND_STATUS cmd_rest(void *p_i)
+{
+	if (bootloader_restart(p_i) == RETURN_NORMAL)
+	{
+		return COMMANDOK;
+	}
+	else
+	{
+		return COMMANDWRONG;
+	}
+}
+
+// prikaz CHNN
+COMMAND_STATUS cmd_chnn(void *p_i)
+{
+	if (bootloader_chunk_request(p_i) == RETURN_NORMAL)
+	{
+		return COMMANDOK;
+	}
+	else
+	{
+		return COMMANDWRONG;
+	}
 }
 
 uint8_t cmd_isnumber(uint8_t *character)

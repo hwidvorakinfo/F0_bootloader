@@ -7,12 +7,15 @@
 
 #include "usart.h"
 #include "string.h"
+#include "application.h"
 
 volatile usart_data_tx_t Tx;
 volatile usart_data_rx_t Rx;
 
-#define RSHARE_SECTION ".rshared.data,\"aw\",%nobits//"
-#define _RSHARE __attribute__((used, section(RAMSHARE)))
+static uint8_t usart_mode = USARTCOMMAND;
+
+//#define RSHARE_SECTION ".rshared.data,\"aw\",%nobits//"
+//#define _RSHARE __attribute__((used, section(RAMSHARE)))
 
 static volatile uint32_t *shared_data = (uint32_t *)0x200000C0;
 
@@ -28,10 +31,10 @@ void usart_config(void)
   /* Enable USART clock */
   RCC_APB1PeriphClockCmd(USART_CLOCKS, ENABLE);
 
-  /* Connect PA2 to USART1_Tx */
+  /* Connect PA2 to USART2_Tx */
   GPIO_PinAFConfig(USART_TX_PORT, USART_TX_SOURCE, USART_TX_AF);
 
-  /* Connect PA3 to USART1_Rx */
+  /* Connect PA3 to USART2_Rx */
   GPIO_PinAFConfig(USART_RX_PORT, USART_RX_SOURCE, USART_RX_AF);
 
   /* Configure USART Tx and Rx as alternate function push-pull */
@@ -45,6 +48,12 @@ void usart_config(void)
   GPIO_InitStructure.GPIO_Pin = USART_RX_PIN;
   GPIO_Init(USART_RX_PORT, &GPIO_InitStructure);
 
+#ifdef RS485_ENABLED
+  // RS485 DE signal
+  GPIO_InitStructure.GPIO_Pin = USART_DE_PIN;
+  GPIO_Init(USART_DE_PORT, &GPIO_InitStructure);
+#endif // RS485_ENABLED
+
   /* USARTx configuration ----------------------------------------------------*/
   /* USARTx configured as follow:
   - BaudRate = 115200 baud
@@ -54,7 +63,19 @@ void usart_config(void)
   - Hardware flow control disabled (RTS and CTS signals)
   - Receive and transmit enabled
   */
-  USART_InitStructure.USART_BaudRate = 115200;
+
+  USART_DeInit(USART);
+
+#ifdef RS485_ENABLED
+	#ifdef USE_OVERSAMPLING_8
+	  #define OVERSAMPLING_VALUE 0x08
+	  USART_OverSampling8Cmd(USART1, ENABLE);
+	#else
+	  #define OVERSAMPLING_VALUE 0x10
+	#endif
+#endif // RS485_ENABLED
+
+  USART_InitStructure.USART_BaudRate = RS485BAUDRATE;
   USART_InitStructure.USART_WordLength = USART_WordLength_8b;
   USART_InitStructure.USART_StopBits = USART_StopBits_1;
   USART_InitStructure.USART_Parity = USART_Parity_No;
@@ -68,6 +89,20 @@ void usart_config(void)
   NVIC_InitStructure.NVIC_IRQChannelPriority = USART_PRIORITY;
   NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
   NVIC_Init(&NVIC_InitStructure);
+
+#ifdef RS485_ENABLED
+  /* Enable driver enable mode */
+  USART_DECmd(USART, ENABLE);
+
+  /* Configure DE assertion time */
+  USART_SetDEAssertionTime(USART, OVERSAMPLING_VALUE);
+
+  /* Configure DE deassertion time */
+  USART_SetDEDeassertionTime(USART, OVERSAMPLING_VALUE);
+
+  /* Configure polarity of DE */
+  USART_DEPolarityConfig(USART, USART_DEPolarity_High);
+#endif
 
   /* Enable USART */
   USART_Cmd(USART, ENABLE);
@@ -88,15 +123,16 @@ void usart_config(void)
   usart_send_text((uint8_t *)&hello);
   usart_newline();
 
-  if (*shared_data == 7)
-  {
-	  volatile uint8_t shared[3];
-	  shared[0] = 'H';
-	  shared[1] = 'I';
-	  shared[2] = 0;
-	  usart_send_text((uint8_t *)&shared);
-  }
-  *shared_data = 3;
+  // demo pro prenos sdilenych dat mezi aplikaci a bootloaderem
+//  if (*shared_data == 7)
+//  {
+//	  volatile uint8_t shared[3];
+//	  shared[0] = 'H';
+//	  shared[1] = 'I';
+//	  shared[2] = 0;
+//	  usart_send_text((uint8_t *)&shared);
+//  }
+//  *shared_data = 3;
 }
 
 void usart_send_text(uint8_t *text)
@@ -147,3 +183,12 @@ uint8_t *get_Rx_buffer(void)
 	return (uint8_t *)&Rx.buffer;
 }
 
+void usart_set_mode(uint8_t mode)
+{
+	usart_mode = mode;
+}
+
+uint8_t usart_get_mode(void)
+{
+	return usart_mode;
+}

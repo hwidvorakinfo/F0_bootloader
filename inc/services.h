@@ -26,6 +26,7 @@
 #define ANIMATION_SERVICE_PERIOD		(SCHEDULERPERIOD * 125 MILISEKUND)
 #define HEARTBEAT_SERVICE_PERIOD		(SCHEDULERPERIOD * 1000 MILISEKUND)
 #define APPSTART_SERVICE_PERIOD			(SCHEDULERPERIOD * 2000 MILISEKUND)
+#define RESET_SERVICE_PERIOD			(SCHEDULERPERIOD * 1000 MILISEKUND)
 
 #define FREE			0
 #define STARTED			127
@@ -36,7 +37,9 @@
 void LED_service(void);
 void Delay_service(void);
 void Command_service(void);
+void Binary_data_service(void);
 void Heartbeat_service(void);
 void AppStart_service(void);
+void Reset_service(void);
 
 #endif /* INCLUDES_SERVICES_H_ */

@@ -130,32 +130,81 @@ void USART2_IRQHandler(void)
   {
 	  if (Rx.status != RECEIVEDONE)
 	  {
+		  // prijmi byte dat
 		  Rx.buffer[Rx.index] = USART_ReceiveData(USART);
-		  if ((Rx.buffer[Rx.index] == '\r') || (Rx.buffer[Rx.index] == '\n'))
-		  {
-			  // konec prenosu
-			  Rx.status = RECEIVEDONE;
-			  Rx.buffer[Rx.index] = 0;
 
-			  // zalozeni sluzby pro dekodovani a zpracovani zpravy
-			  if(Scheduler_Add_Task(Command_service, 0, 0) == SCH_MAX_TASKS)
+		  // v jakem jsi rezimu? rozhodni o ukonceni prijmu
+		  if (usart_get_mode() == USARTCOMMAND)
+		  {
+			  // textovy rezim
+			  if ((Rx.buffer[Rx.index] == '\r') || (Rx.buffer[Rx.index] == '\n'))
 			  {
-				// chyba pri zalozeni service
+				  // konec prenosu
+				  Rx.status = RECEIVEDONE;
+				  Rx.buffer[Rx.index] = 0;
+
+				  // zalozeni sluzby pro dekodovani a zpracovani zpravy
+				  if(Scheduler_Add_Task(Command_service, 0, 0) == SCH_MAX_TASKS)
+				  {
+					// chyba pri zalozeni service
+				  }
+				  return;
 			  }
 		  }
 		  else
 		  {
-			  // prijmi dalsi znak
-			  Rx.index++;
-			  // neni prekrocena maximalni delka?
-			  if (Rx.index > RXBUFFERSIZE)
+			  // binarni blokovy rezim
+			  if (Rx.index == (bootloader_get_chunk_len()-1))
 			  {
-				  // je prekrocena, ukonci prijem a cti dale od zacatku
-				  Rx.status = READYTORECEIVE;
-				  Rx.index = 0;
-				  Rx.buffer[RXBUFFERSIZE-1] = 0;
+				  // konec prenosu
+				  Rx.status = RECEIVEDONE;
+
+				  // zalozeni sluzby pro dekodovani a zpracovani zpravy
+				  if(Scheduler_Add_Task(Binary_data_service, 0, 0) == SCH_MAX_TASKS)
+				  {
+					// chyba pri zalozeni service
+				  }
+				  return;
 			  }
 		  }
+
+		  // zpracuj prijem dalsiho znaku
+		  Rx.index++;
+		  // neni prekrocena maximalni delka?
+		  if (Rx.index > RXBUFFERSIZE)
+		  {
+			  // je prekrocena, ukonci prijem a cti dale od zacatku
+			  Rx.status = READYTORECEIVE;
+			  Rx.index = 0;
+			  Rx.buffer[RXBUFFERSIZE-1] = 0;
+		  }
+
+//		  if ((Rx.buffer[Rx.index] == '\r') || (Rx.buffer[Rx.index] == '\n'))
+//		  {
+//			  // konec prenosu
+//			  Rx.status = RECEIVEDONE;
+//			  Rx.buffer[Rx.index] = 0;
+//
+//			  // zalozeni sluzby pro dekodovani a zpracovani zpravy
+//			  if(Scheduler_Add_Task(Command_service, 0, 0) == SCH_MAX_TASKS)
+//			  {
+//				// chyba pri zalozeni service
+//			  }
+//		  }
+//		  else
+//		  {
+//			  // prijmi dalsi znak
+//			  Rx.index++;
+//			  // neni prekrocena maximalni delka?
+//			  if (Rx.index > RXBUFFERSIZE)
+//			  {
+//				  // je prekrocena, ukonci prijem a cti dale od zacatku
+//				  Rx.status = READYTORECEIVE;
+//				  Rx.index = 0;
+//				  Rx.buffer[RXBUFFERSIZE-1] = 0;
+//			  }
+//		  }
+
 	  }
   }
 }

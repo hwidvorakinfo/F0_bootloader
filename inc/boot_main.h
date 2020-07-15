@@ -35,6 +35,7 @@
 #include "services.h"
 #include "usart.h"
 #include "mcuperipherals.h"
+#include "bootloader.h"
 
 
 /* Exported types ------------------------------------------------------------*/

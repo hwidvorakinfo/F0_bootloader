@@ -29,16 +29,13 @@ void commands_process(void);
 void commands_wrong_cmd(void);
 void commands_ok_cmd(void);
 
-COMMAND_STATUS cmd_heatbeddisable(void *p_i);
-COMMAND_STATUS cmd_heatbedenable(void *p_i);
-COMMAND_STATUS cmd_heatbedgetstatus(void *p_i);
-COMMAND_STATUS cmd_heatbedget1temp(void *p_i);
-COMMAND_STATUS cmd_heatbedgetall(void *p_i);
-COMMAND_STATUS cmd_heatbedset1temp(void *p_i);
-COMMAND_STATUS cmd_heatbedsetall(void *p_i);
-COMMAND_STATUS cmd_heatbedsetgloball(void *p_i);
-COMMAND_STATUS cmd_heatbedconst(void *p_i);
-COMMAND_STATUS cmd_heatbedload(void *p_i);
-COMMAND_STATUS cmd_heatbedversion(void *p_i);
+COMMAND_STATUS cmd_getver(void *p_i);
+COMMAND_STATUS cmd_fureq(void *p_i);
+COMMAND_STATUS cmd_mcpr(void *p_i);
+COMMAND_STATUS cmd_mlreq(void *p_i);
+COMMAND_STATUS cmd_fustop(void *p_i);
+COMMAND_STATUS cmd_ficrc(void *p_i);
+COMMAND_STATUS cmd_rest(void *p_i);
+COMMAND_STATUS cmd_chnn(void *p_i);
 
 #endif /* COMMANDS_H_ */

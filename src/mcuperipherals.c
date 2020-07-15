@@ -17,7 +17,7 @@
 // inicializuje vsechny mozne vystupy na vsech portech a vstupy do ADC
 void mcuperipherals_init(void)
 {
-	//gpio_init();
+	gpio_init();
 	//irq_init();
 	//adc_init();
 

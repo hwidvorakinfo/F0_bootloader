@@ -40,6 +40,7 @@
 #include "usart.h"
 #include "application.h"
 #include "dwarf.h"
+#include "bootloader.h"
 
 /* Exported types ------------------------------------------------------------*/
 /* Exported constants --------------------------------------------------------*/

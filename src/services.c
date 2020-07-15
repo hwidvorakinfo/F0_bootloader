@@ -8,6 +8,7 @@
 #include "services.h"
 #include "application.h"
 #include "bootloader.h"
+#include "errorcodes.h"
 
 /* private prototypes */
 
@@ -32,7 +33,7 @@ void Delay_service(void)
 }
 
 
-// obsluzna sluzba zavolana z IRQ rutiny UART1
+// obsluzna sluzba zavolana z IRQ rutiny UART
 void Command_service(void)
 {
 	// dekodovani a zpracovani zpravy z UART
@@ -42,25 +43,57 @@ void Command_service(void)
 	usart_release_Rx_buffer();
 }
 
+// obsluzna sluzba zavolana z IRQ rutiny UART
+void Binary_data_service(void)
+{
+	// dekodovani a zpracovani zpravy z UART
+	if (bootloader_binary_process() != RETURN_NORMAL)
+	{
+		// chyba prubehu zpracovani binarni zpravy
+	}
+
+	// uvolneni Rx bufferu
+	usart_release_Rx_buffer();
+
+	// nastaveni textoveho rezim pro prikazy
+	usart_set_mode(USARTCOMMAND);
+}
+
 // startovaci sluzba aplikace
 void AppStart_service(void)
 {
 	pFunction appEntry;
 	uint32_t appStack;
+	uint32_t *appcrc = (uint32_t *)APPLICATION_SPACE_CRC;
 
-	/* Get the application stack pointer (First entry in the application vector table) */
-	appStack = (uint32_t) *((__IO uint32_t*)APPLICATION_ADDRESS);
+	// pokud sedi CRC cele aplikace, spust ji
+	if (bootloader_crc_check_block(APPLICATION_ADDRESS, APPLICATION_SPACE/sizeof(uint32_t), *appcrc) == RETURN_NORMAL)
+	{
+		/* Get the application stack pointer (First entry in the application vector table) */
+		appStack = (uint32_t) *((__IO uint32_t*)APPLICATION_ADDRESS);
 
-	/* Get the application entry point (Second entry in the application vector table) */
-	appEntry = (pFunction) *(__IO uint32_t*) (APPLICATION_ADDRESS + 4);
+		/* Get the application entry point (Second entry in the application vector table) */
+		appEntry = (pFunction) *(__IO uint32_t*) (APPLICATION_ADDRESS + 4);
 
-	/* Set the application stack pointer */
-	__set_MSP(appStack);
+		/* Set the application stack pointer */
+		__set_MSP(appStack);
 
-	/* Start the application */
-	appEntry();
+		/* Start the application */
+		appEntry();
 
-	while(1);
+		// program by nemel nikdy dospet sem
+		while(1)
+		{
+			// assert error
+			assert_param(0);
+		}
+	}
+}
+
+// resetujici sluzba
+void Reset_service(void)
+{
+	NVIC_SystemReset();
 }
 
 // obsluzna sluzba heartbeat zprav

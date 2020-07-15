@@ -63,7 +63,7 @@ int boot_main(void)
 	Scheduler_init();									// inicializace kooperativniho scheduleru a jeho odstartovani
 	Scheduler_start();									// nyni je jiz mozne zakladat tasky
 
-	mcuperipherals_init();							// inicializace periferii MCU
+	mcuperipherals_init();								// inicializace periferii MCU
 
 	//leds_init();										// inicializace stavove led
 	//dwarf_init();										// inicializace vlastnosti desky
